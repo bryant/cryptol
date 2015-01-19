@@ -158,7 +158,7 @@ test: ${CS_BIN}/cryptol-test-runner
 	echo "Testing on $(UNAME)-$(ARCH)" &&                              \
 	$(realpath $(CS_BIN)/cryptol-test-runner)                          \
 	  $(foreach t,$(TESTS),-d $t)                                      \
-	  -c $(call adjust-path,$(realpath ${PKG_BIN}/cryptol${EXE_EXT}))  \
+	  -c $(call adjust-path,${CURDIR}/${PKG_BIN}/cryptol${EXE_EXT})    \
 	  -r output                                                        \
 	  -T --hide-successes                                              \
 	  -T --jxml=$(call adjust-path,$(CURDIR)/results.xml)              \
