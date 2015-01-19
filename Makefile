@@ -30,14 +30,11 @@ ifneq (,$(findstring _NT,${UNAME}))
   EXE_EXT := .exe
   adjust-path = '$(shell cygpath -w $1)'
   PREFIX ?= /cygdrive/c/${PROGRAM_FILES}/Galois/Cryptol\ ${VERSION}
-# on Windows we don't have to use the prefix in the staging directory
-  PKG_PREFIX := ${PKG}
 else
   DIST := ${PKG}.tar.gz ${PKG}.zip
   EXE_EXT :=
   adjust-path = '$1'
   PREFIX ?= /usr/local
-  PKG_PREFIX := ${PKG}${PREFIX}
 endif
 
 CRYPTOL_EXE := ./dist/build/cryptol/cryptol${EXE_EXT}
@@ -93,6 +90,7 @@ ${CRYPTOL_EXE}: $(CRYPTOL_DEPS) | dist/setup-config
 # ${CS_BIN}/cryptolnb: ${CS_BIN}/alex ${CS_BIN}/happy | ${CS}
 # 	$(CABAL) install . -fnotebook
 
+PKG_PREFIX    := ${PKG}${PREFIX}
 PKG_BIN       := ${PKG_PREFIX}/bin
 PKG_SHARE     := ${PKG_PREFIX}/share
 PKG_CRY       := ${PKG_SHARE}/cryptol
@@ -136,13 +134,13 @@ ${PKG}.zip: ${PKG}
 	zip -r $@ $<
 
 ${PKG}.msi: ${PKG} win32/cryptol.wxs
-	${HEAT} dir ${PKG} -o allfiles.wxs -nologo -var var.pkg \
+	${HEAT} dir ${PKG_PREFIX} -o allfiles.wxs -nologo -var var.pkg \
           -ag -wixvar -cg ALLFILES -srd -dr INSTALLDIR -sfrag
-	${CANDLE} -ext WixUIExtension -ext WixUtilExtension     \
-          -dversion=${VERSION} -dpkg=${PKG} win32/cryptol.wxs
-	${CANDLE} -ext WixUIExtension -ext WixUtilExtension     \
-          -dversion=${VERSION} -dpkg=${PKG} allfiles.wxs
-	${LIGHT} -ext WixUIExtension -ext WixUtilExtension      \
+	${CANDLE} -ext WixUIExtension -ext WixUtilExtension            \
+          -dversion=${VERSION} -dpkg=${PKG_PREFIX} win32/cryptol.wxs
+	${CANDLE} -ext WixUIExtension -ext WixUtilExtension            \
+          -dversion=${VERSION} -dpkg=${PKG_PREFIX} allfiles.wxs
+	${LIGHT} -ext WixUIExtension -ext WixUtilExtension             \
 	  -sval -o $@ cryptol.wixobj allfiles.wixobj
 	rm -f allfiles.wxs
 	rm -f *.wixobj
