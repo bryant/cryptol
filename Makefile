@@ -90,7 +90,7 @@ ${CRYPTOL_EXE}: $(CRYPTOL_DEPS) | dist/setup-config
 # ${CS_BIN}/cryptolnb: ${CS_BIN}/alex ${CS_BIN}/happy | ${CS}
 # 	$(CABAL) install . -fnotebook
 
-PKG_PREFIX    := ${PKG}${PREFIX}
+PKG_PREFIX    := $(call adjust-path,${PKG}${PREFIX})
 PKG_BIN       := ${PKG_PREFIX}/bin
 PKG_SHARE     := ${PKG_PREFIX}/share
 PKG_CRY       := ${PKG_SHARE}/cryptol
