@@ -9,7 +9,7 @@ Category:            Language
 Build-type:          Configure
 Cabal-version:       >= 1.18
 
-data-files:          lib/Cryptol.cry
+data-files:          share/cryptol/Cryptol.cry
 
 flag static
   default: False

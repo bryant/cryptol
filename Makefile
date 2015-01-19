@@ -11,6 +11,8 @@ CABAL       := $(CABAL_EXE) $(CABAL_FLAGS)
 CS          := ./.cabal-sandbox
 CS_BIN      := $(CS)/bin
 
+PREFIX ?= /usr/local
+
 # Used only for windows, to find the right Program Files.
 PROGRAM_FILES = Program\ Files\ \(x86\)
 # Windows installer tools; assumes running on Cygwin and using WiX 3.8
@@ -35,8 +37,10 @@ else
   adjust-path = '$1'
 endif
 
+CRYPTOL_EXE := ./dist/build/cryptol/cryptol${EXE_EXT}
+
 .PHONY: all
-all: ${CS_BIN}/cryptol
+all: ${CRYPTOL_EXE}
 
 .PHONY: docs
 docs:
@@ -54,56 +58,74 @@ zip: ${PKG}.zip
 .PHONY: msi
 msi: ${PKG}.msi
 
+# TODO: piece this apart a bit more; if right now if something fails
+# during initial setup, you have to invoke this target again manually
+.PHONY: deps
+deps: | ${CS}
+	sh configure
+	$(CABAL) install alex happy
+	$(CABAL) install --only-dependencies
+
 ${CS}:
 	$(CABAL_EXE) sandbox init
 
-# order-only dependency: we just want the sandbox to exist
-${CS_BIN}/alex: | ${CS}
-	$(CABAL) install alex
-
-# order-only dependency: we just want the sandbox to exist. Dependency
-# on alex so that `make -j` doesn't try running simultaneous installs
-# in the same sandbox
-${CS_BIN}/happy: | ${CS} ${CS_BIN}/alex
-	$(CABAL) install happy
-
-src/GitRev.hs:
-	sh configure
-
-
 CRYPTOL_DEPS := \
-  $(shell find src cryptol \( -name \*.hs -or -name \*.x -or -name \*.y \) -and \( -not -name \*\#\* \) -print) \
-  $(shell find lib -name \*.cry)
+  $(shell find src cryptol \
+            \( -name \*.hs -or -name \*.x -or -name \*.y \) \
+            -and \( -not -name \*\#\* \) -print) \
+  $(shell find share/cryptol -name \*.cry)
 
 print-%:
 	@echo $* = $($*)
 
-${CS_BIN}/cryptol: ${CS_BIN}/alex ${CS_BIN}/happy $(CRYPTOL_DEPS) | ${CS}
-	$(CABAL) install .
+dist/setup-config: | deps
+	$(CABAL_EXE) configure   \
+          --prefix=${PREFIX}     \
+          --datadir=${PREFIX}    \
+          --datasubdir=${PREFIX}
 
-${CS_BIN}/cryptolnb: ${CS_BIN}/alex ${CS_BIN}/happy | ${CS}
-	$(CABAL) install . -fnotebook
+${CRYPTOL_EXE}: $(CRYPTOL_DEPS) dist/setup-config
+	$(CABAL) build
 
-${PKG}: ${CS_BIN}/cryptol
-	mkdir -p ${PKG}/bin
-	mkdir -p ${PKG}/lib
-	mkdir -p ${PKG}/doc/examples/contrib
-	cp ${CS_BIN}/cryptol ${PKG}/bin/cryptol
-	cp -R docs/*.md ${PKG}/doc
-	cp -R docs/*.pdf ${PKG}/doc
-	cp -R lib/* ${PKG}/lib
-	cp docs/ProgrammingCryptol/aes/AES.cry ${PKG}/doc/examples
-	cp docs/ProgrammingCryptol/enigma/Enigma.cry ${PKG}/doc/examples
-	cp examples/DES.cry ${PKG}/doc/examples
-	cp examples/Cipher.cry ${PKG}/doc/examples
-	cp examples/DEStest.cry ${PKG}/doc/examples
-	cp examples/Test.cry ${PKG}/doc/examples
-	cp examples/SHA1.cry ${PKG}/doc/examples
-	cp examples/contrib/mkrand.cry ${PKG}/doc/examples/contrib
-	cp examples/contrib/RC4.cry ${PKG}/doc/examples/contrib
-	cp examples/contrib/simon.cry ${PKG}/doc/examples/contrib
-	cp examples/contrib/speck.cry ${PKG}/doc/examples/contrib
-	cp LICENSE ${PKG}/doc
+# ${CS_BIN}/cryptolnb: ${CS_BIN}/alex ${CS_BIN}/happy | ${CS}
+# 	$(CABAL) install . -fnotebook
+
+PKG_PREFIX    := ${PKG}${PREFIX}
+PKG_BIN       := ${PKG_PREFIX}/bin
+PKG_SHARE     := ${PKG_PREFIX}/share
+PKG_CRY       := ${PKG_SHARE}/cryptol
+PKG_DOC       := ${PKG_SHARE}/doc/cryptol
+PKG_EXAMPLES  := ${PKG_DOC}/examples
+PKG_EXCONTRIB := ${PKG_EXAMPLES}/contrib
+
+PKG_EXAMPLE_FILES := docs/ProgrammingCryptol/aes/AES.cry       \
+                     docs/ProgrammingCryptol/enigma/Enigma.cry \
+                     examples/DES.cry                          \
+                     examples/Cipher.cry                       \
+                     examples/DEStest.cry                      \
+                     examples/Test.cry                         \
+                     examples/SHA1.cry
+
+PKG_EXCONTRIB_FILES := examples/contrib/mkrand.cry \
+                       examples/contrib/RC4.cry    \
+                       examples/contrib/simon.cry  \
+                       examples/contrib/speck.cry
+
+${PKG}: ${CRYPTOL_EXE}
+	$(CABAL_EXE) copy --destdir=${PKG}
+# don't want to bundle the cryptol library in the binary distribution
+	rm -rf ${PKG_PREFIX}/lib
+	mkdir -p ${PKG_CRY}
+	mkdir -p ${PKG_DOC}
+	mkdir -p ${PKG_EXAMPLES}
+	mkdir -p ${PKG_EXCONTRIB}
+	cp docs/*.md ${PKG_DOC}
+	cp docs/*.pdf ${PKG_DOC}
+	cp LICENSE ${PKG_DOC}
+	for EXAMPLE in ${PKG_EXAMPLE_FILES}; do \
+          cp $$EXAMPLE ${PKG_EXAMPLES}; done
+	for EXAMPLE in ${PKG_EXCONTRIB_FILES}; do \
+          cp $$EXAMPLE ${PKG_EXCONTRIB}; done
 
 ${PKG}.tar.gz: ${PKG}
 	tar -czvf $@ $<
@@ -112,16 +134,20 @@ ${PKG}.zip: ${PKG}
 	zip -r $@ $<
 
 ${PKG}.msi: ${PKG} win32/cryptol.wxs
-	${HEAT} dir ${PKG} -o allfiles.wxs -nologo -var var.pkg -ag -wixvar -cg ALLFILES -srd -dr INSTALLDIR -sfrag
-	${CANDLE} -ext WixUIExtension -ext WixUtilExtension -dversion=${VERSION} -dpkg=${PKG} win32/cryptol.wxs
-	${CANDLE} -ext WixUIExtension -ext WixUtilExtension -dversion=${VERSION} -dpkg=${PKG} allfiles.wxs
-	${LIGHT} -ext WixUIExtension -ext WixUtilExtension -sval -o $@ cryptol.wixobj allfiles.wixobj
+	${HEAT} dir ${PKG} -o allfiles.wxs -nologo -var var.pkg \
+          -ag -wixvar -cg ALLFILES -srd -dr INSTALLDIR -sfrag
+	${CANDLE} -ext WixUIExtension -ext WixUtilExtension     \
+          -dversion=${VERSION} -dpkg=${PKG} win32/cryptol.wxs
+	${CANDLE} -ext WixUIExtension -ext WixUtilExtension     \
+          -dversion=${VERSION} -dpkg=${PKG} allfiles.wxs
+	${LIGHT} -ext WixUIExtension -ext WixUtilExtension      \
+	  -sval -o $@ cryptol.wixobj allfiles.wixobj
 	rm -f allfiles.wxs
 	rm -f *.wixobj
 	rm -f *.wixpdb
 
 ${CS_BIN}/cryptol-test-runner: \
-  $(CS_BIN)/cryptol            \
+  ${PKG}                       \
   $(CURDIR)/tests/Main.hs      \
   $(CURDIR)/tests/cryptol-test-runner.cabal
 	$(CABAL) install ./tests
@@ -132,25 +158,22 @@ test: ${CS_BIN}/cryptol-test-runner
 	echo "Testing on $(UNAME)-$(ARCH)" &&                              \
 	$(realpath $(CS_BIN)/cryptol-test-runner)                          \
 	  $(foreach t,$(TESTS),-d $t)                                      \
-	  -c $(call adjust-path,$(realpath $(CS_BIN)/cryptol$(EXE_EXT))) \
+	  -c $(call adjust-path,$(realpath ${PKG_BIN}/cryptol${EXE_EXT}))  \
 	  -r output                                                        \
 	  -T --hide-successes                                              \
 	  -T --jxml=$(call adjust-path,$(CURDIR)/results.xml)              \
 	  $(if $(TEST_DIFF),-p $(TEST_DIFF),)                              \
 	)
 
-.PHONY: notebook
-notebook: ${CS_BIN}/cryptolnb
-	cd notebook && ./notebook.sh
-
+# .PHONY: notebook
+# notebook: ${CS_BIN}/cryptolnb
+# 	cd notebook && ./notebook.sh
 
 .PHONY: clean
 clean:
 	cabal clean
 	rm -f src/GitRev.hs
-	rm -f $(CS_BIN)/cryptol
 	rm -f $(CS_BIN)/cryptol-test-suite
-	rm -f $(CS_BIN)/cryptolnb
 	rm -rf cryptol-${VERSION}*/
 	rm -rf cryptol-${VERSION}*.tar.gz
 	rm -rf cryptol-${VERSION}*.zip

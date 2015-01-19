@@ -64,7 +64,11 @@ initialModuleEnv  = do
     , meNameSeeds     = T.nameSeeds
     , meEvalEnv       = mempty
     , meFocusedModule = Nothing
-    , meSearchPath    = [dataDir </> "lib", instDir1 </> "lib", instDir2 </> "lib", "."]
+    , meSearchPath    = [ dataDir  </> "share" </> "cryptol"
+                        , instDir1 </> "share" </> "cryptol"
+                        , instDir2 </> "share" </> "cryptol"
+                        , "."
+                        ]
     , meDynEnv        = mempty
     , meMonoBinds     = True
     }
