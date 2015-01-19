@@ -29,12 +29,15 @@ ifneq (,$(findstring _NT,${UNAME}))
   DIST := ${PKG}.msi
   EXE_EXT := .exe
   adjust-path = '$(shell cygpath -w $1)'
-  PREFIX ?= /cygdrive/c/${PROGRAM_FILES}/Galois/Cryptol\ ${VERSION}
+  PREFIX ?= ${PROGRAM_FILES}/Galois/Cryptol\ ${VERSION}
+  # split this up because `cabal copy` strips drive letters
+  PREFIX_ABS := /cygdrive/c/${PREFIX}
 else
   DIST := ${PKG}.tar.gz ${PKG}.zip
   EXE_EXT :=
   adjust-path = '$1'
   PREFIX ?= /usr/local
+  PREFIX_ABS := ${PREFIX}
 endif
 
 CRYPTOL_EXE := ./dist/build/cryptol/cryptol${EXE_EXT}
@@ -76,10 +79,10 @@ print-%:
 
 dist/setup-config: | ${CS}
 	$(CABAL_INSTALL) --only-dependencies
-	$(CABAL) configure                           \
-          --prefix=$(call adjust-path,${PREFIX})     \
-          --datadir=$(call adjust-path,${PREFIX})    \
-          --datasubdir=$(call adjust-path,${PREFIX})
+	$(CABAL) configure                               \
+          --prefix=$(call adjust-path,${PREFIX_ABS})     \
+          --datadir=$(call adjust-path,${PREFIX_ABS})    \
+          --datasubdir=$(call adjust-path,${PREFIX_ABS})
 
 ${CRYPTOL_EXE}: $(CRYPTOL_DEPS) | dist/setup-config
 	$(CABAL) build
