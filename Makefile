@@ -4,12 +4,12 @@ ARCH    := $(shell uname -m)
 TESTS ?= issues regression renamer mono-binds
 TEST_DIFF ?= meld
 
-CABAL_FLAGS ?= -j
+CABAL_INSTALL_FLAGS ?= -j
 
-CABAL_EXE   := cabal
-CABAL       := $(CABAL_EXE) $(CABAL_FLAGS)
-CS          := ./.cabal-sandbox
-CS_BIN      := $(CS)/bin
+CABAL         ?= cabal
+CABAL_INSTALL := $(CABAL) install $(CABAL_INSTALL_FLAGS)
+CS            := ./.cabal-sandbox
+CS_BIN        := $(CS)/bin
 
 # Used only for windows, to find the right Program Files.
 PROGRAM_FILES = Program\ Files\ \(x86\)
@@ -67,10 +67,10 @@ deps: ${CS}
 # TODO: piece this apart a bit more; if right now if something fails
 # during initial setup, you have to invoke this target again manually
 ${CS}:
-	$(CABAL_EXE) sandbox init
+	$(CABAL) sandbox init
 	sh configure
-	$(CABAL) install alex happy
-	$(CABAL) install --only-dependencies
+	$(CABAL_INSTALL) alex happy
+	$(CABAL_INSTALL) --only-dependencies
 
 CRYPTOL_DEPS := \
   $(shell find src cryptol \
@@ -82,7 +82,7 @@ print-%:
 	@echo $* = $($*)
 
 dist/setup-config: | ${CS}
-	$(CABAL_EXE) configure                       \
+	$(CABAL) configure                       \
           --prefix=$(call adjust-path,${PREFIX})     \
           --datadir=$(call adjust-path,${PREFIX})    \
           --datasubdir=$(call adjust-path,${PREFIX})
@@ -114,7 +114,7 @@ PKG_EXCONTRIB_FILES := examples/contrib/mkrand.cry \
                        examples/contrib/speck.cry
 
 ${PKG}: ${CRYPTOL_EXE}
-	$(CABAL_EXE) copy --destdir=${PKG}
+	$(CABAL) copy --destdir=${PKG}
 # don't want to bundle the cryptol library in the binary distribution
 	rm -rf ${PKG_PREFIX}/lib
 	mkdir -p ${PKG_CRY}
@@ -152,7 +152,7 @@ ${CS_BIN}/cryptol-test-runner: \
   ${PKG}                       \
   $(CURDIR)/tests/Main.hs      \
   $(CURDIR)/tests/cryptol-test-runner.cabal
-	$(CABAL) install ./tests
+	$(CABAL_INSTALL) ./tests
 
 .PHONY: test
 test: ${CS_BIN}/cryptol-test-runner
@@ -183,7 +183,7 @@ clean:
 
 .PHONY: squeaky
 squeaky: clean
-	-$(CABAL_EXE) sandbox delete
+	-$(CABAL) sandbox delete
 	(cd docs; make clean)
 	rm -rf dist
 	rm -rf tests/dist
