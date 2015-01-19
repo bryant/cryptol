@@ -6,7 +6,7 @@ TEST_DIFF ?= meld
 
 CABAL_INSTALL_FLAGS ?= -j
 
-CABAL         ?= cabal
+CABAL         := cabal
 CABAL_INSTALL := $(CABAL) install $(CABAL_INSTALL_FLAGS)
 CS            := ./.cabal-sandbox
 CS_BIN        := $(CS)/bin
