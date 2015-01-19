@@ -39,7 +39,7 @@ ifneq (,$(findstring _NT,${UNAME}))
   PREFIX_SHARE  :=
   # goes under the share prefix
   PREFIX_DOC    := /doc
-  PKG_PREFIX    := $(shell cygpath -w ${PKG}/${PREFIX})
+  PKG_PREFIX    := ${PKG}/${PREFIX}
 else
   DIST := ${PKG}.tar.gz ${PKG}.zip
   EXE_EXT :=

@@ -64,9 +64,10 @@ initialModuleEnv  = do
     , meNameSeeds     = T.nameSeeds
     , meEvalEnv       = mempty
     , meFocusedModule = Nothing
-    , meSearchPath    = [ dataDir  </> "share" </> "cryptol"
+    , meSearchPath    = [ dataDir
                         , instDir1 </> "share" </> "cryptol"
-                        , instDir2 </> "share" </> "cryptol"
+                          -- we install Cryptol.cry to $prefix/cryptol on win32
+                        , instDir2 </> "cryptol"
                         , "."
                         ]
     , meDynEnv        = mempty
