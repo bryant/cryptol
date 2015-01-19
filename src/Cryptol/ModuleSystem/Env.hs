@@ -53,21 +53,16 @@ initialModuleEnv :: IO ModuleEnv
 initialModuleEnv  = do
   dataDir <- getDataDir
   (binDir, _) <- splitExecutablePath
-  -- XXX Ugh. The first of these seems to work on unix-like systems,
-  -- the second seems to work on Windows. The results from
-  -- System.Environment.Executable must be inconsistent between
-  -- platforms, so for now we'll just try both. See #113
-  let instDir1 = normalise . joinPath . init . init . splitPath $ binDir
-      instDir2 = normalise . joinPath . init . splitPath $ binDir
+  let instDir = normalise . joinPath . init . splitPath $ binDir
   return ModuleEnv
     { meLoadedModules = mempty
     , meNameSeeds     = T.nameSeeds
     , meEvalEnv       = mempty
     , meFocusedModule = Nothing
     , meSearchPath    = [ dataDir
-                        , instDir1 </> "share" </> "cryptol"
+                        , instDir </> "share" </> "cryptol"
                           -- we install Cryptol.cry to $prefix/cryptol on win32
-                        , instDir2 </> "cryptol"
+                        , instDir </> "cryptol"
                         , "."
                         ]
     , meDynEnv        = mempty
