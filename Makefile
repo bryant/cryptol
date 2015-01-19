@@ -4,9 +4,11 @@ ARCH    := $(shell uname -m)
 TESTS ?= issues regression renamer mono-binds
 TEST_DIFF ?= meld
 
-CABAL_INSTALL_FLAGS ?= -j
+CABAL_BUILD_FLAGS   ?= -j
+CABAL_INSTALL_FLAGS ?= $(CABAL_BUILD_FLAGS)
 
 CABAL         := cabal
+CABAL_BUILD   := $(CABAL) build $(CABAL_BUILD_FLAGS)
 CABAL_INSTALL := $(CABAL) install $(CABAL_INSTALL_FLAGS)
 CS            := ./.cabal-sandbox
 CS_BIN        := $(CS)/bin
@@ -31,13 +33,23 @@ ifneq (,$(findstring _NT,${UNAME}))
   adjust-path = '$(shell cygpath -w $1)'
   PREFIX ?= ${PROGRAM_FILES}/Galois/Cryptol\ ${VERSION}
   # split this up because `cabal copy` strips drive letters
-  PREFIX_ABS := /cygdrive/c/${PREFIX}
+  PREFIX_ABS    := /cygdrive/c/${PREFIX}
+  # since Windows installs aren't overlapping like /usr/local, we
+  # don't need this extra prefix
+  PREFIX_SHARE  :=
+  # goes under the share prefix
+  PREFIX_DOC    := /doc
+  PKG_PREFIX    := $(shell cygpath -w ${PKG}/${PREFIX})
 else
   DIST := ${PKG}.tar.gz ${PKG}.zip
   EXE_EXT :=
   adjust-path = '$1'
   PREFIX ?= /usr/local
   PREFIX_ABS := ${PREFIX}
+  PREFIX_SHARE := /share
+  # goes under the share prefix
+  PREFIX_DOC   := /doc/cryptol
+  PKG_PREFIX    := ${PKG}${PREFIX}
 endif
 
 CRYPTOL_EXE := ./dist/build/cryptol/cryptol${EXE_EXT}
@@ -65,36 +77,44 @@ msi: ${PKG}.msi
 # during initial setup, you have to invoke this target again manually
 ${CS}:
 	$(CABAL) sandbox init
-	sh configure
-	$(CABAL_INSTALL) alex happy
 
-CRYPTOL_DEPS := \
+${CS_BIN}/alex: | ${CS}
+	$(CABAL_INSTALL) alex
+
+${CS_BIN}/happy: | ${CS} ${CS_BIN}/alex
+	$(CABAL_INSTALL) happy
+
+CRYPTOL_SRC := \
   $(shell find src cryptol \
             \( -name \*.hs -or -name \*.x -or -name \*.y \) \
             -and \( -not -name \*\#\* \) -print) \
-  $(shell find share/cryptol -name \*.cry)
+  $(shell find lib -name \*.cry)
+
+src/GitRev.hs: .git/index
+	sh configure
 
 print-%:
 	@echo $* = $($*)
 
-dist/setup-config: | ${CS}
-	$(CABAL_INSTALL) --only-dependencies
-	$(CABAL) configure                               \
-          --prefix=$(call adjust-path,${PREFIX_ABS})     \
-          --datadir=$(call adjust-path,${PREFIX_ABS})    \
-          --datasubdir=$(call adjust-path,${PREFIX_ABS})
+# /usr/share/cryptol on POSIX, installdir/cryptol on Windows
+DATADIR := ${PREFIX_ABS}${PREFIX_SHARE}
 
-${CRYPTOL_EXE}: $(CRYPTOL_DEPS) | dist/setup-config
-	$(CABAL) build
+dist/setup-config: | ${CS_BIN}/alex ${CS_BIN}/happy
+	$(CABAL_INSTALL) --only-dependencies
+	$(CABAL) configure                            \
+          --prefix=$(call adjust-path,${PREFIX_ABS})  \
+          --datasubdir=cryptol
+
+${CRYPTOL_EXE}: $(CRYPTOL_SRC) src/GitRev.hs dist/setup-config
+	$(CABAL_BUILD)
 
 # ${CS_BIN}/cryptolnb: ${CS_BIN}/alex ${CS_BIN}/happy | ${CS}
 # 	$(CABAL) install . -fnotebook
 
-PKG_PREFIX    := $(call adjust-path,${PKG}/${PREFIX})
 PKG_BIN       := ${PKG_PREFIX}/bin
-PKG_SHARE     := ${PKG_PREFIX}/share
+PKG_SHARE     := ${PKG_PREFIX}${PREFIX_SHARE}
 PKG_CRY       := ${PKG_SHARE}/cryptol
-PKG_DOC       := ${PKG_SHARE}/doc/cryptol
+PKG_DOC       := ${PKG_SHARE}${PREFIX_DOC}
 PKG_EXAMPLES  := ${PKG_DOC}/examples
 PKG_EXCONTRIB := ${PKG_EXAMPLES}/contrib
 
