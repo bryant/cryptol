@@ -11,8 +11,6 @@ CABAL       := $(CABAL_EXE) $(CABAL_FLAGS)
 CS          := ./.cabal-sandbox
 CS_BIN      := $(CS)/bin
 
-PREFIX ?= /usr/local
-
 # Used only for windows, to find the right Program Files.
 PROGRAM_FILES = Program\ Files\ \(x86\)
 # Windows installer tools; assumes running on Cygwin and using WiX 3.8
@@ -31,10 +29,15 @@ ifneq (,$(findstring _NT,${UNAME}))
   DIST := ${PKG}.msi
   EXE_EXT := .exe
   adjust-path = '$(shell cygpath -w $1)'
+  PREFIX ?= /cygdrive/c/${PROGRAM_FILES}/Galois/Cryptol\ ${VERSION}
+# on Windows we don't have to use the prefix in the staging directory
+  PKG_PREFIX := ${PKG}
 else
   DIST := ${PKG}.tar.gz ${PKG}.zip
   EXE_EXT :=
   adjust-path = '$1'
+  PREFIX ?= /usr/local
+  PKG_PREFIX := ${PKG}${PREFIX}
 endif
 
 CRYPTOL_EXE := ./dist/build/cryptol/cryptol${EXE_EXT}
@@ -79,10 +82,10 @@ print-%:
 	@echo $* = $($*)
 
 dist/setup-config: | deps
-	$(CABAL_EXE) configure   \
-          --prefix=${PREFIX}     \
-          --datadir=${PREFIX}    \
-          --datasubdir=${PREFIX}
+	$(CABAL_EXE) configure                  \
+          --prefix=$(adjust-path ${PREFIX})     \
+          --datadir=$(adjust-path ${PREFIX})    \
+          --datasubdir=$(adjust-path ${PREFIX})
 
 ${CRYPTOL_EXE}: $(CRYPTOL_DEPS) dist/setup-config
 	$(CABAL) build
@@ -90,7 +93,6 @@ ${CRYPTOL_EXE}: $(CRYPTOL_DEPS) dist/setup-config
 # ${CS_BIN}/cryptolnb: ${CS_BIN}/alex ${CS_BIN}/happy | ${CS}
 # 	$(CABAL) install . -fnotebook
 
-PKG_PREFIX    := ${PKG}${PREFIX}
 PKG_BIN       := ${PKG_PREFIX}/bin
 PKG_SHARE     := ${PKG_PREFIX}/share
 PKG_CRY       := ${PKG_SHARE}/cryptol
