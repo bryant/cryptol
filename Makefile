@@ -58,16 +58,12 @@ zip: ${PKG}.zip
 .PHONY: msi
 msi: ${PKG}.msi
 
-.PHONY: deps
-deps: ${CS}
-
 # TODO: piece this apart a bit more; if right now if something fails
 # during initial setup, you have to invoke this target again manually
 ${CS}:
 	$(CABAL) sandbox init
 	sh configure
 	$(CABAL_INSTALL) alex happy
-	$(CABAL_INSTALL) --only-dependencies
 
 CRYPTOL_DEPS := \
   $(shell find src cryptol \
@@ -79,7 +75,8 @@ print-%:
 	@echo $* = $($*)
 
 dist/setup-config: | ${CS}
-	$(CABAL) configure                       \
+	$(CABAL_INSTALL) --only-dependencies
+	$(CABAL) configure                           \
           --prefix=$(call adjust-path,${PREFIX})     \
           --datadir=$(call adjust-path,${PREFIX})    \
           --datasubdir=$(call adjust-path,${PREFIX})
