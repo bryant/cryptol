@@ -57,6 +57,10 @@ CRYPTOL_EXE := ./dist/build/cryptol/cryptol${EXE_EXT}
 .PHONY: all
 all: ${CRYPTOL_EXE}
 
+.PHONY: run
+run: ${CRYPTOL_EXE}
+	CRYPTOLPATH=$(call adjust-path,$(CURDIR)/lib) ${CRYPTOL_EXE}
+
 .PHONY: docs
 docs:
 	(cd docs; make)

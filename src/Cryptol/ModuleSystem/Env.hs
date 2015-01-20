@@ -6,6 +6,7 @@
 -- Stability   :  provisional
 -- Portability :  portable
 
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE PatternGuards #-}
 
 module Cryptol.ModuleSystem.Env where
@@ -24,6 +25,7 @@ import Data.Foldable (fold)
 import Data.Function (on)
 import qualified Data.Map as Map
 import Data.Monoid ((<>), Monoid(..))
+import System.Directory (getAppUserDataDirectory, getCurrentDirectory)
 import System.Environment.Executable(splitExecutablePath)
 import System.FilePath ((</>), normalise, joinPath, splitPath)
 import qualified Data.List as List
@@ -51,19 +53,32 @@ resetModuleEnv env = env
 
 initialModuleEnv :: IO ModuleEnv
 initialModuleEnv  = do
+  curDir <- getCurrentDirectory
   dataDir <- getDataDir
   (binDir, _) <- splitExecutablePath
   let instDir = normalise . joinPath . init . splitPath $ binDir
+  userDir <- getAppUserDataDirectory "cryptol"
   return ModuleEnv
     { meLoadedModules = mempty
     , meNameSeeds     = T.nameSeeds
     , meEvalEnv       = mempty
     , meFocusedModule = Nothing
-    , meSearchPath    = [ dataDir
-                        , instDir </> "share" </> "cryptol"
-                          -- we install Cryptol.cry to $prefix/cryptol on win32
+      -- we search these in order, taking the first match
+    , meSearchPath    = [ curDir
+                          -- something like $HOME/.cryptol
+                        , userDir
+#if defined(mingw32_HOST_OS) || defined(__MINGW32__)
+                          -- ../cryptol on win32
                         , instDir </> "cryptol"
-                        , "."
+#else
+                          -- ../share/cryptol on others
+                        , instDir </> "share" </> "cryptol"
+#endif
+                          -- Cabal-defined data directory. Since this
+                          -- is usually a global location like
+                          -- /usr/local, search this one last in case
+                          -- someone has multiple Cryptols
+                        , dataDir
                         ]
     , meDynEnv        = mempty
     , meMonoBinds     = True
