@@ -280,7 +280,7 @@ layout cfg ts0 = loop implicitScope [] ts0
 
     done ts s = (reverse (t:ts), s)
 
-    closingToken = ty `elem` [ Sym ParenR, Sym BracketR, Sym CurlyR ]
+    closingToken = ty `elem` [ Sym ParenR, Sym BracketR, Sym CurlyR, EOF ]
 
 virt :: Config -> Position -> TokenV -> Located Token
 virt cfg pos x = Located { srcRange = Range
